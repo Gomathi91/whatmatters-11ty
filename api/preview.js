@@ -1,16 +1,20 @@
 require("dotenv").config();
 const contentful = require("contentful");
-const Eleventy = require("@11ty/eleventy"); 
+const nunjucks = require("nunjucks");
 const path = require("path");
-const fs = require("fs");
 
 const PREVIEW_SECRET = process.env.CONTENTFUL_PREVIEW_SECRET;
 const SPACE_ID = process.env.CONTENTFUL_SPACE_ID;
-const PREVIEW_TOKEN = process.env.CONTENTFUL_PREVIEW_TOKEN;
+const PREVIEW_ACCESS_TOKEN = process.env.CONTENTFUL_PREVIEW_TOKEN;
 const ENVIRONMENT = process.env.CONTENTFUL_ENVIRONMENT || "master";
 
+// Point Nunjucks to your Eleventy src folder
+const njkEnv = nunjucks.configure(path.join(process.cwd(), "src"), {
+  autoescape: true,
+});
+
 module.exports = async function (req, res) {
-  const { secret } = req.query;
+  const { secret, slug } = req.query;
 
   if (!secret || secret !== PREVIEW_SECRET) {
     return res.status(401).send("Invalid preview secret");
@@ -18,7 +22,7 @@ module.exports = async function (req, res) {
 
   const client = contentful.createClient({
     space: SPACE_ID,
-    accessToken: PREVIEW_TOKEN,
+    accessToken: PREVIEW_ACCESS_TOKEN,
     environment: ENVIRONMENT,
     host: "preview.contentful.com",
   });
@@ -27,7 +31,7 @@ module.exports = async function (req, res) {
   try {
     const { items, includes = {} } = await client.getEntries({
       content_type: "deluxePage",
-      "fields.slug": "home",
+      "fields.slug": slug,
       include: 5,
       limit: 1,
     });
@@ -37,12 +41,10 @@ module.exports = async function (req, res) {
     }
 
     const page = items[0];
-
     const findLinked = (id) =>
       [...items, ...(includes.Entry || []), ...(includes.Asset || [])].find(
         (x) => x.sys.id === id
       );
-
     const getImageUrl = (img) =>
       img?.fields?.file?.url ? `https:${img.fields.file.url}` : null;
 
@@ -58,13 +60,7 @@ module.exports = async function (req, res) {
             case "fullWidthTextBlock":
               return { id: block.sys.id, type, title: fields.title, content: fields.content };
             case "textImageBlock":
-              return {
-                id: block.sys.id,
-                type,
-                title: fields.title,
-                content: fields.content,
-                image: getImageUrl(fields.image),
-              };
+              return { id: block.sys.id, type, title: fields.title, content: fields.content, image: getImageUrl(fields.image) };
             case "fullWidthImageBlock":
               return { id: block.sys.id, type, title: fields.title, image: getImageUrl(fields.image) };
             case "storiesListingBlock":
@@ -93,26 +89,14 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const inputDir = path.join(process.cwd(), "src");
-    const outputDir = path.join(process.cwd(), "_tmp_preview"); // temporary output
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    // Map slug to template
+    let templateFile = slug === "home" ? "index.njk" : `${slug}.njk`;
 
-    const elev = new Eleventy(inputDir, outputDir, {
-      quietMode: true,
-      passthroughFileCopy: true,
-    });
-
-    // Provide data via globalData override
-    elev.setGlobalData({
-      previewData: pageData,
-    });
-
-    // Render the "home.njk" template (or index.njk)
-    const renderedHtml = await elev.renderTemplate("index.html", pageData);
-
-    return res.setHeader("Content-Type", "text/html").send(renderedHtml);
+    // Render the template with pageData under variable "home" (to keep your template code consistent)
+    const html = njkEnv.render(templateFile, { home: pageData });
+    return res.setHeader("Content-Type", "text/html").send(html);
   } catch (err) {
-    console.error("❌ Eleventy render error:", err.message);
+    console.error("❌ Nunjucks render error:", err.message);
     return res.status(500).send("Error rendering preview page");
   }
 };
