@@ -1,9 +1,9 @@
 require("dotenv").config();
 const contentful = require("contentful");
 
-async function fetchHomePage(isPreview = false) {
+module.exports = async function () {
 
-// const isPreview = process.env.USE_CONTENTFUL_PREVIEW === "true";
+const isPreview = process.env.USE_CONTENTFUL_PREVIEW === "true";
 
 const client = contentful.createClient({
   space: process.env.CONTENTFUL_SPACE_ID,
@@ -88,10 +88,3 @@ const client = contentful.createClient({
   }
 };
 
-async function getHomePage(req) {
-  const isPreview = req?.query?.preview === "true"; 
-  const pageData = await fetchHomePage(isPreview);
-  return pageData;
-}
-
-module.exports = getHomePage;

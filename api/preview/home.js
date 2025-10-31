@@ -1,55 +1,52 @@
-// api/preview.js
 require("dotenv").config();
 const contentful = require("contentful");
+const Eleventy = require("@11ty/eleventy"); 
+const path = require("path");
+const fs = require("fs");
 
-// Environment variables
 const PREVIEW_SECRET = process.env.CONTENTFUL_PREVIEW_SECRET;
 const SPACE_ID = process.env.CONTENTFUL_SPACE_ID;
-const PREVIEW_ACCESS_TOKEN = process.env.CONTENTFUL_PREVIEW_TOKEN;
+const PREVIEW_TOKEN = process.env.CONTENTFUL_PREVIEW_TOKEN;
 const ENVIRONMENT = process.env.CONTENTFUL_ENVIRONMENT || "master";
 
 module.exports = async function (req, res) {
-  const { secret, slug } = req.query;
+  const { secret } = req.query;
 
-  // 1️⃣ Validate secret key
-  if (secret !== PREVIEW_SECRET) {
-    return res.status(401).json({ message: "Invalid preview secret" });
+  if (!secret || secret !== PREVIEW_SECRET) {
+    return res.status(401).send("Invalid preview secret");
   }
 
-  // 2️⃣ Create Contentful Preview client
   const client = contentful.createClient({
     space: SPACE_ID,
-    accessToken: PREVIEW_ACCESS_TOKEN,
+    accessToken: PREVIEW_TOKEN,
     environment: ENVIRONMENT,
     host: "preview.contentful.com",
   });
 
+  let pageData;
   try {
-    // 3️⃣ Fetch matching page entry (by slug)
     const { items, includes = {} } = await client.getEntries({
-      content_type: "deluxePage", // your custom content type
-      "fields.slug": slug,
+      content_type: "deluxePage",
+      "fields.slug": "home",
       include: 5,
       limit: 1,
     });
 
     if (!items.length) {
-      return res.status(404).json({ message: "No entry found for that slug" });
+      return res.status(404).send("No entry found for this slug");
     }
 
     const page = items[0];
 
-    // Helper to find linked entries or assets by ID
     const findLinked = (id) =>
       [...items, ...(includes.Entry || []), ...(includes.Asset || [])].find(
         (x) => x.sys.id === id
       );
 
-    // 4️⃣ Transform into structured data (like home.js)
     const getImageUrl = (img) =>
       img?.fields?.file?.url ? `https:${img.fields.file.url}` : null;
 
-    const transformedPage = {
+    pageData = {
       id: page.sys.id,
       title: page.fields.title,
       slug: page.fields.slug,
@@ -57,16 +54,9 @@ module.exports = async function (req, res) {
         page.fields.pageBlocks?.map((block) => {
           const type = block.sys.contentType.sys.id;
           const fields = block.fields;
-
           switch (type) {
             case "fullWidthTextBlock":
-              return {
-                id: block.sys.id,
-                type,
-                title: fields.title,
-                content: fields.content,
-              };
-
+              return { id: block.sys.id, type, title: fields.title, content: fields.content };
             case "textImageBlock":
               return {
                 id: block.sys.id,
@@ -75,15 +65,8 @@ module.exports = async function (req, res) {
                 content: fields.content,
                 image: getImageUrl(fields.image),
               };
-
             case "fullWidthImageBlock":
-              return {
-                id: block.sys.id,
-                type,
-                title: fields.title,
-                image: getImageUrl(fields.image),
-              };
-
+              return { id: block.sys.id, type, title: fields.title, image: getImageUrl(fields.image) };
             case "storiesListingBlock":
               const stories =
                 fields.selectStories
@@ -99,17 +82,37 @@ module.exports = async function (req, res) {
                   })
                   .filter(Boolean) || [];
               return { id: block.sys.id, type, title: fields.title, stories };
-
             default:
               return { id: block.sys.id, type, title: fields.title };
           }
         }) || [],
     };
-
-    // 5️⃣ Return JSON preview
-    return res.status(200).json(transformedPage);
   } catch (err) {
-    console.error("❌ Error fetching preview:", err.message);
-    return res.status(500).json({ message: "Error fetching preview" });
+    console.error("❌ Error fetching Contentful data:", err.message);
+    return res.status(500).send("Error fetching Contentful data");
+  }
+
+  try {
+    const inputDir = path.join(process.cwd(), "src");
+    const outputDir = path.join(process.cwd(), "_tmp_preview"); // temporary output
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+    const elev = new Eleventy(inputDir, outputDir, {
+      quietMode: true,
+      passthroughFileCopy: true,
+    });
+
+    // Provide data via globalData override
+    elev.setGlobalData({
+      previewData: pageData,
+    });
+
+    // Render the "home.njk" template (or index.njk)
+    const renderedHtml = await elev.renderTemplate("home.njk", pageData);
+
+    return res.setHeader("Content-Type", "text/html").send(renderedHtml);
+  } catch (err) {
+    console.error("❌ Eleventy render error:", err.message);
+    return res.status(500).send("Error rendering preview page");
   }
 };
