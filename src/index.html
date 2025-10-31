@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Contentful + Eleventy (HTML)</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+      <div class="page">
+        <h1>{{ home.title }}</h1>
+
+        {% for block in home.blocks %}
+          {% if block.type == "fullWidthTextBlock" %}
+            {% include "blocks/full-width-text.html" %}
+          {% endif %}
+
+          {% if block.type == "textImageBlock" %}
+            {% include "blocks/text-image.html" %}
+          {% endif %}
+
+          {% if block.type == "fullWidthImageBlock" %}
+            {% include "blocks/full-width-image.html" %}
+          {% endif %}
+
+          {% if block.type == "storiesListingBlock" %}
+            {% include "blocks/stories-listing.html" %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    
+  </body>
+</html>

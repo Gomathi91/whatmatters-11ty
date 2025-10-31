@@ -1,0 +1,13 @@
+<div class="block">
+  <div class="stories">
+    {% for story in block.stories %}
+      <div class="story">
+        {% if story.image %}
+          <img src="{{ story.image }}" alt="{{ story.title }}" />
+        {% endif %}
+        <h4>{{ story.title }}</h4>
+        <p>{{ story.summary }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>

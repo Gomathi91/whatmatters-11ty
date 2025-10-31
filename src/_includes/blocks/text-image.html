@@ -1,0 +1,13 @@
+<div class="block text-image"
+     style="display: flex; flex-direction: row; align-items: center; gap: 20px; margin: 20px 0;">
+  <div style="flex: 1;">
+    <h3>{{ block.title }}</h3>
+    <p>{{ block.content }}</p>
+  </div>
+  <div style="flex: 1;">
+    {% if block.image %}
+      <img src="{{ block.image }}" alt="{{ block.title }}"
+           style="width: 100%; height: auto; border-radius: 10px;" />
+    {% endif %}
+  </div>
+</div>

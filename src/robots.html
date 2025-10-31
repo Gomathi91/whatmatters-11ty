@@ -1,0 +1,11 @@
+---
+permalink: /robots.txt
+---
+{% if process.env.ELEVENTY_ENV == "production" %}
+User-agent: *
+Allow: /
+Sitemap: https://yourdomain.com/sitemap.xml
+{% else %}
+User-agent: *
+Disallow: /
+{% endif %}
