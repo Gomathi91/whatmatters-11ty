@@ -108,7 +108,7 @@ module.exports = async function (req, res) {
     });
 
     // Render the "home.njk" template (or index.njk)
-    const renderedHtml = await elev.renderTemplate("home.njk", pageData);
+    const renderedHtml = await elev.renderTemplate("index.html", pageData);
 
     return res.setHeader("Content-Type", "text/html").send(renderedHtml);
   } catch (err) {
