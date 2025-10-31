@@ -2,6 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "_site",
   "functions": {
-    "api/**/*.js": { }
+    "api/**/*.js": {
+      "runtime": "nodejs"
+    }
   }
 }
