@@ -3,9 +3,7 @@
   "outputDirectory": "_site",
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs18",       
-      "memory": 128,              
-      "maxDuration": 10 
+      "runtime": "nodejs18"
     }
   }
 }
